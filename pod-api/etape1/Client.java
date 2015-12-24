@@ -36,10 +36,12 @@ public class Client extends UnicastRemoteObject implements Client_itf {
 
 	// request a read lock from the server
 	public static Object lock_read(int id) {
+		// Appel a distance de la méthode  lock_read(int id, Client_itf client) du Serveur 
 	}
 
 	// request a write lock from the server
 	public static Object lock_write (int id) {
+		// Appel a distance de la méthode  lock_write(int id, Client_itf client) du Serveur 
 	}
 
 	// receive a lock reduction request from the server
