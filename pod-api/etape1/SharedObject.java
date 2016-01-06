@@ -13,6 +13,11 @@ public class SharedObject implements Serializable, SharedObject_itf  {
 	//5 : RLT_WLC : read lock taken and write lock cached
 	
 	// invoked by the user program on the client node
+	public SharedObject(int id , Object obj ){
+		this.id = id ; 
+		this.obj = obj ; 
+		this.lock = 0;
+	}
 	public void lock_read() {
 		
 			if(lock == 0 ){
@@ -20,7 +25,6 @@ public class SharedObject implements Serializable, SharedObject_itf  {
 				lock = (int) Client.lock_read(this.id) ; 
 			}
 		
-			
 			if(lock == 1 ){ 
 			// read lock en cache , pas besoin de propager 
 			lock = 3 ; 
@@ -35,10 +39,7 @@ public class SharedObject implements Serializable, SharedObject_itf  {
 
 	// invoked by the user program on the client node
 	public void lock_write() {
-				
-			if(lock < 0 || lock > 5 ) {
-				throw new InvalidLockValueException("");
-			}
+		
 			if(lock == 0 || lock == 1 ){
 				// NL ou RLC :  Propagation au serveur 
 				lock = (int) Client.lock_write(this.id) ; 
@@ -48,8 +49,6 @@ public class SharedObject implements Serializable, SharedObject_itf  {
 			// write lock en cache , pas besoin de propager 
 			lock = 4 ; 
 			}
-		
-		
 	}
 
 	// invoked by the user program on the client node

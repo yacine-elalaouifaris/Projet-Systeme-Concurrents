@@ -4,9 +4,11 @@ import java.rmi.registry.*;
 import java.net.*;
 
 public class Client extends UnicastRemoteObject implements Client_itf {
-
+	public ConcurrentMap<int><SharedObject>  sharedobjects;
+	
 	public Client() throws RemoteException {
 		super();
+		sharedobjects = new ConcurrentMap<int><SharedObject>(); 
 	}
 
 
@@ -20,14 +22,29 @@ public class Client extends UnicastRemoteObject implements Client_itf {
 	
 	// lookup in the name server
 	public static SharedObject lookup(String name) {
+		try {
+			Server_itf serv = (Server) Naming.lookup("serveur");
+			return new SharedObject(serv.lookup(name),null)  ; 
+		 }catch(Exception e){
+			e.printStackTrace();
+		 }
 	}		
 	
 	// binding in the name server
 	public static void register(String name, SharedObject_itf so) {
+					
 	}
 
 	// creation of a shared object
 	public static SharedObject create(Object o) {
+			try {
+			Server_itf serv = (Server) Naming.lookup("serveur");
+			int id = serv.create(Object o);
+			so = new SharedObject(id , o) ;  
+			return so;
+		 }catch(Exception e){
+			e.printStackTrace();
+		 }
 	}
 	
 /////////////////////////////////////////////////////////////
@@ -37,11 +54,23 @@ public class Client extends UnicastRemoteObject implements Client_itf {
 	// request a read lock from the server
 	public static Object lock_read(int id) {
 		// Appel a distance de la méthode  lock_read(int id, Client_itf client) du Serveur 
+		try {
+			Server_itf serv = (Server) Naming.lookup("serveur");
+			return serv.lock_read(id , this) ; 
+		 }catch(Exception e){
+			e.printStackTrace();
+		 }
 	}
 
 	// request a write lock from the server
 	public static Object lock_write (int id) {
 		// Appel a distance de la méthode  lock_write(int id, Client_itf client) du Serveur 
+		try {
+			Server_itf serv = (Server) Naming.lookup("serveur");
+			return serv.lock_write(id , this) ; 
+		 }catch(Exception e){
+			e.printStackTrace();
+		 }
 	}
 
 	// receive a lock reduction request from the server
