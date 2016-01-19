@@ -1,81 +1,115 @@
 import java.io.*;
+import java.util.concurrent.*;
 
 public class SharedObject implements Serializable, SharedObject_itf  {
 	
-	int id ; 
-	Object obj = null ; 
-	int lock; //A voir si ça ne serait pas mieux de faire ça avec des énums ^^ 
-	//0 : NL : no local lock
-	//1 : RLC : read lock cached (not taken)
-	//2 : WLC : write lock cached
-	//3 : RLT : read lock taken
-	//4 : WLT : write lock taken
-	//5 : RLT_WLC : read lock taken and write lock cached
-	
-	// invoked by the user program on the client node
+	public  int id ; 
+	public  Object obj = null ; 
+	public 	ReentrantLock mutex = new ReentrantLock() ;
+	public  Condition 
+	public  enum lock {NL,RLC,WLC,RLT,WLT,RLT_WLC} ;
+	public lock state ; 
+
 	public SharedObject(int id , Object obj ){
 		this.id = id ; 
 		this.obj = obj ; 
-		this.lock = 0;
+		this.state = lock.NL;
 	}
 	public void lock_read() {
-		
-			if(lock == 0 ){
-				// Pas de verrou :  Propagation au serveur 
-				lock = (int) Client.lock_read(this.id) ; 
+			Object o = null ; 
+			if(this.state = lock.NL ){
+				mutex.lock();
+				o = Client.lock_read(this.id); 
+				mutex.unlock();
+				this.obj = o ; 
+				this.state = lock.RLT ;
 			}
 		
-			if(lock == 1 ){ 
+			if(this.state == lock.RLC ){ 
 			// read lock en cache , pas besoin de propager 
-			lock = 3 ; 
+	
+			this.state = lock.RLT ; 
+			
 			}
 			
-			if(lock == 2){ 
+			if(this.state = lock.WLC ){ 
 			// write lock en cache , pas besoin de propager 
-			lock = 5 ; 
+			
+			this.state = lock.RLT_WLC ; 
+	
 			}
 		
 	}
 
 	// invoked by the user program on the client node
 	public void lock_write() {
-		
-			if(lock == 0 || lock == 1 ){
+			Object o = null ; 
+			if(this.state == lock.NL || this.state == lock.RLC || this.state = lock.RLT ){
 				// NL ou RLC :  Propagation au serveur 
-				lock = (int) Client.lock_write(this.id) ; 
+				mutex.lock() ;
+				o  =  Client.lock_write(this.id) ; 
+				mutex.unlock();
+				this.obj = o ; 
+				this.state = lock.RLT;
 			}
 		
-			if(lock == 2){ 
+			if(this.state == lock.WLC){ 
 			// write lock en cache , pas besoin de propager 
-			lock = 4 ; 
+			this.state = lock.WLT; 
 			}
 	}
 
 	// invoked by the user program on the client node
 	public synchronized void unlock() {
-			if(lock == 4 || lock == 5 ) {
+			mutex.lock();
+			if(state == lock.WLT || state == lock.WLC ) {
 				//WLT ou RLT-WLC ---> WLC
-				lock = 2 ; 
+				state = lock.WLC ; 
 				 notify() ; 
 			}
-			if(lock == 3){
+			if(state == lock.RLT){
 				//RLT ---> RLC 
-				lock = 1 ;
+				state = lock.RLC ;
 				notify();
 			}
+			mutex.unlock();
 	}
+	
 
 
 	// callback invoked remotely by the server
 	public synchronized Object reduce_lock()  {
-
+			mutex.lock()
+			if(this.state == lock.WLC){
+					this.state = lock.RLC ; 
+			}
+			if(this.state = lock.RLT_WLC){
+					this.state = lock.RLT ;
+			}
+			return this.Object ; 
+			mutex.unlock()
 	}
 
 	// callback invoked remotely by the server
 	public synchronized void invalidate_reader() {
+		mutex.lock(); 
+			this.state = lock.NL ;
+			Object o = this.obj ;
+			this.obj = null ; 
+		mutex.unlock();
+		return o ; 
+		
 	}
 
 	public synchronized Object invalidate_writer() {
+		mutex.lock(); 
+			this.state = lock.NL ;
+			Object o = this.obj ;
+			this.obj = null ; 
+		mutex.unlock();
+		return o ; 
+		
 	}
+	
 
 }
