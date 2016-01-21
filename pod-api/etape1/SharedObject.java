@@ -1,12 +1,15 @@
 import java.io.*;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class SharedObject implements Serializable, SharedObject_itf  {
 	
 	public  int id ; 
 	public  Object obj = null ; 
-	public 	ReentrantLock mutex = new ReentrantLock() ;
-	public  Condition 
+	public 	ReentrantLock mutex  ;
+	public Condition writelock_returned ;
+	public Condition readlock_returned ; 
 	public  enum lock {NL,RLC,WLC,RLT,WLT,RLT_WLC} ;
 	public lock state ; 
 
@@ -14,41 +17,38 @@ public class SharedObject implements Serializable, SharedObject_itf  {
 		this.id = id ; 
 		this.obj = obj ; 
 		this.state = lock.NL;
+		mutex = new ReentrantLock();
+		writelock_returned = mutex.newCondition();
+		readlock_returned = mutex.newCondition() ;
 	}
 	public void lock_read() {
 			Object o = null ; 
-			if(this.state = lock.NL ){
-				mutex.lock();
+			mutex.lock();
+			if(this.state == lock.NL ){
 				o = Client.lock_read(this.id); 
-				mutex.unlock();
 				this.obj = o ; 
 				this.state = lock.RLT ;
 			}
 		
 			if(this.state == lock.RLC ){ 
 			// read lock en cache , pas besoin de propager 
-	
 			this.state = lock.RLT ; 
-			
 			}
 			
-			if(this.state = lock.WLC ){ 
+			if(this.state == lock.WLC ){ 
 			// write lock en cache , pas besoin de propager 
-			
 			this.state = lock.RLT_WLC ; 
-	
 			}
-		
+			mutex.unlock();
 	}
 
 	// invoked by the user program on the client node
 	public void lock_write() {
 			Object o = null ; 
-			if(this.state == lock.NL || this.state == lock.RLC || this.state = lock.RLT ){
-				// NL ou RLC :  Propagation au serveur 
-				mutex.lock() ;
+			mutex.lock();
+			if(this.state == lock.NL || this.state == lock.RLC || this.state == lock.RLT ){
+				// NL ou RLC ou :  Propagation au serveur 
 				o  =  Client.lock_write(this.id) ; 
-				mutex.unlock();
 				this.obj = o ; 
 				this.state = lock.RLT;
 			}
@@ -57,20 +57,25 @@ public class SharedObject implements Serializable, SharedObject_itf  {
 			// write lock en cache , pas besoin de propager 
 			this.state = lock.WLT; 
 			}
+			mutex.unlock();
 	}
 
 	// invoked by the user program on the client node
 	public synchronized void unlock() {
 			mutex.lock();
-			if(state == lock.WLT || state == lock.WLC ) {
-				//WLT ou RLT-WLC ---> WLC
-				state = lock.WLC ; 
-				 notify() ; 
+			if(this.state == lock.WLT ) {
+				//WLT  ---> WLC
+				this.state = lock.WLC ; 
+				this.writelock_returned.notify() ; 
 			}
-			if(state == lock.RLT){
+			if(this.state == lock.RLT_WLC){
+				this.state = lock.WLC;
+				this.readlock_returned.notify();
+			}
+			if(this.state == lock.RLT){
 				//RLT ---> RLC 
-				state = lock.RLC ;
-				notify();
+				this.state = lock.RLC ;
+				this.writelock_returned.notify();
 			}
 			mutex.unlock();
 	}
@@ -79,37 +84,45 @@ public class SharedObject implements Serializable, SharedObject_itf  {
 
 	// callback invoked remotely by the server
 	public synchronized Object reduce_lock()  {
-			mutex.lock()
+			mutex.lock();
 			if(this.state == lock.WLC){
 					this.state = lock.RLC ; 
 			}
-			if(this.state = lock.RLT_WLC){
+			if(this.state == lock.RLT_WLC){
 					this.state = lock.RLT ;
 			}
-			return this.Object ; 
-			mutex.unlock()
+			Object o = this.obj ;
+			mutex.unlock();
+			return o;
 	}
 
 	// callback invoked remotely by the server
 	public synchronized void invalidate_reader() {
+		while(this.state == lock.RLT || this.state == lock.RLT_WLC){
+			try {
+				readlock_returned.await();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
 		mutex.lock(); 
 			this.state = lock.NL ;
-			Object o = this.obj ;
-			this.obj = null ; 
 		mutex.unlock();
-		return o ; 
-		
 	}
 
 	public synchronized Object invalidate_writer() {
-		mutex.lock(); 
+		    while(this.state== lock.WLT) {
+		    	try {
+					writelock_returned.await();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+		    }
+			mutex.lock(); 
 			this.state = lock.NL ;
 			Object o = this.obj ;
-			this.obj = null ; 
-		mutex.unlock();
+			this.obj= null ;
+			mutex.unlock();
 		return o ; 
-		
 	}
-	
-
 }
