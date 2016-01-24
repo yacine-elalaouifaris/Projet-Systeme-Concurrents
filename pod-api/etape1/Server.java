@@ -26,7 +26,7 @@ public class Server  extends UnicastRemoteObject implements Server_itf{
 			mutex.lock(); 
 			ServerObject so =  serverobjs_noms.get(name);
 			mutex.unlock(); 
-			return so.id ; 
+			return so.getId() ; 
 	}
 	public void register(String name, int id) throws java.rmi.RemoteException{
 			mutex.lock(); 
@@ -46,7 +46,7 @@ public class Server  extends UnicastRemoteObject implements Server_itf{
 				ServerObject so = serverobjs.get(id); 
 				mutex.unlock(); 
 				so.lock_read(client); 
-				return so.obj ; 
+				return so.getObj() ; 
 	}
 	public Object lock_write(int id, Client_itf client) throws java.rmi.RemoteException{
 		ServerObject so =null;
@@ -54,18 +54,22 @@ public class Server  extends UnicastRemoteObject implements Server_itf{
          so = serverobjs.get(id);
         mutex.unlock();
 		so.lock_write(client);
-        return so.obj;
+        return so.getObj();
 	}
 	
-	public static void main(){
-		try {
+	public static void main(String args[]){
+		try { 
 			Registry registry = LocateRegistry.createRegistry(8080);
-			Server_itf serv = new Server(); 
-			Naming.rebind("//localhost/SharedObjects", serv);
+			Server_itf serv =  new Server(); 
+			Naming.rebind("//localhost:8080/SharedObjects", serv);
 			System.out.println("serveur operationnel : port 8080 ");
 		}catch(Exception e){
 			e.printStackTrace();
 		}
+	}
+	
+	public ArrayList<ServerObject> getSObjects() throws java.rmi.RemoteException {
+		return this.serverobjs;
 	}
 	
 	

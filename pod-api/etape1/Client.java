@@ -10,7 +10,7 @@ import java.net.*;
 public class Client extends UnicastRemoteObject implements Client_itf {
 	
 	public static ConcurrentMap<Integer,SharedObject>  sharedobjects;
-	public static Server serveur ;  //reference au serveur de  nommage 
+	public static Server_itf serveur ;  //reference au serveur de  nommage 
 	public static ReentrantLock mutex ; 
 	public static Client_itf  ref ; // référence statique au client (parce qu'on peut pas utiliser "this") 
 	public Client() throws RemoteException {
@@ -28,7 +28,7 @@ public class Client extends UnicastRemoteObject implements Client_itf {
 	public static void init() {
 		try {
 			ref = new Client();
-			serveur = (Server) Naming.lookup("//localhost/SharedObjects");
+			serveur = (Server_itf) Naming.lookup("//localhost:8080/SharedObjects");
 		} catch (MalformedURLException e) {
 			e.printStackTrace();
 		} catch (RemoteException e) {
@@ -41,21 +41,23 @@ public class Client extends UnicastRemoteObject implements Client_itf {
 	// lookup in the name server
 	public static SharedObject lookup(String name) {
         SharedObject so = null ;
-		try {
+		int id ;
+        try {
 			mutex.lock();
-			int id = serveur.lookup(name) ;
+			id = serveur.lookup(name) ;
 			mutex.unlock(); 
 			if(sharedobjects.containsKey(id)){
 				so = sharedobjects.get(id);
 			}
 			else{
-				Object o = serveur.serverobjs.get(id).obj;
+				Object o = serveur.getSObjects().get(id).getObj();
 				so = new SharedObject(id , o);
 				sharedobjects.put(id,so);
 			}
 		 }catch(Exception e){
 			e.printStackTrace();
 		 }
+		
 		return so ; 
 	}		
 	
@@ -63,7 +65,7 @@ public class Client extends UnicastRemoteObject implements Client_itf {
 	public static void register(String name, SharedObject_itf so) {
 		try{  
 			SharedObject so_impl = (SharedObject) so ;
-			serveur.register(name , so_impl.id ); 		
+			serveur.register(name , so_impl.getId() ); 		
 		}catch(Exception e ) {
 			e.printStackTrace() ; 
 		}
