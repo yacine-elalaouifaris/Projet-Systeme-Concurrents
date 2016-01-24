@@ -2,9 +2,7 @@ import java.rmi.*;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
-import java.rmi.registry.*;
 import java.net.*;
 
 public class Client extends UnicastRemoteObject implements Client_itf {
@@ -114,7 +112,7 @@ public class Client extends UnicastRemoteObject implements Client_itf {
 
 	// receive a lock reduction request from the server
 	public Object reduce_lock(int id) throws java.rmi.RemoteException {
-			SharedObject so = this.sharedobjects.get(id);
+			SharedObject so = sharedobjects.get(id);
 			return so.reduce_lock();
 	}
 
@@ -123,12 +121,14 @@ public class Client extends UnicastRemoteObject implements Client_itf {
 	public void invalidate_reader(int id) throws java.rmi.RemoteException {
 				SharedObject so = sharedobjects.get(id) ;
 				so.invalidate_reader() ;
+				serveur.getSObjects().get(id).clients_lockread.remove(id);
 	}
 
 
 	// receive a writer invalidation request from the server
 	public Object invalidate_writer(int id) throws java.rmi.RemoteException {
 				SharedObject so = sharedobjects.get(id);
+				serveur.getSObjects().get(id).writer = null;
 				return so.invalidate_writer();
 	}
 }
